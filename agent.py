@@ -72,6 +72,20 @@ def build_message(sig: dict) -> str:
             f"Comision estimada de venta: ~{comm}%{pl}\n\n"
             f"Regimen bajista: salir a efectivo para proteger capital."
         )
+    if sig["action"] == "WAIT_BUY":
+        return (
+            f"\U0001F7E1 <b>Tendencia alcista — esperando pozo para entrar</b>\n"
+            f"{sig['date']}  ${sig['price']} sobre SMA200 ${sig['sma200']}\n"
+            f"Aun en efectivo. El agente comprara en la proxima baja "
+            f"(o a mas tardar en pocos dias)."
+        )
+    if sig["action"] == "WAIT_SELL":
+        return (
+            f"\U0001F7E0 <b>Tendencia rota — esperando rebote para salir</b>\n"
+            f"{sig['date']}  ${sig['price']} bajo SMA200 ${sig['sma200']}\n"
+            f"Aun invertido. El agente vendera en el proximo dia verde "
+            f"(o a mas tardar en pocos dias)."
+        )
     # HOLD (latido diario)
     estado = "INVERTIDO \U0001F7E2" if sig["invested"] else "EN EFECTIVO \U0001F534"
     return (

@@ -5,7 +5,7 @@ usando el CSV historico local del SPY. Ejecutar:  python backtest.py
 import numpy as np
 import pandas as pd
 
-from strategy import compute_position, COMMISSION
+from strategy import compute_position, apply_timing, COMMISSION
 
 
 def load_close(path="spy_historico_completo.csv"):
@@ -26,7 +26,8 @@ def stats(returns):
 def main():
     close = load_close()
     ret = close.pct_change().fillna(0)
-    pos = compute_position(close)
+    regime = compute_position(close)
+    pos, _ = apply_timing(close, regime)  # posicion real con timing de entrada/salida
 
     bh = ret
     # La posicion se decide con el cierre de hoy y se ejecuta al dia siguiente:

@@ -40,7 +40,57 @@ def compute_position(close: pd.Series) -> pd.Series:
         elif state == 1 and dn.iloc[i]:
             state = 0
         pos[i] = state
-    return pd.Series(pos, index=close.index, name="position")
+    return pd.Series(pos, index=close.index, name="regime")
+
+
+# Timing de entrada/salida usando reversion a la media, SIN sumar operaciones.
+# Al entrar esperamos un pozo (dias en baja) para comprar mas barato; al salir
+# esperamos un rebote (dia en alza) para vender mejor. Con tope de espera para
+# no perder el movimiento.
+MAX_WAIT_BUY = 5   # dias que esperamos un pozo antes de entrar igual
+MAX_WAIT_SELL = 3  # dias que esperamos un rebote antes de salir igual
+
+
+def apply_timing(close: pd.Series, regime: pd.Series):
+    """Convierte el regimen de tendencia en posicion real con timing.
+
+    Devuelve (position, pending) donde pending es 'buy'/'sell'/None:
+    'buy'  = la tendencia es alcista pero esperamos un pozo para entrar.
+    'sell' = la tendencia se rompio pero esperamos un rebote para salir.
+    """
+    ret = close.pct_change().fillna(0)
+    up = ret > 0
+    down = ret < 0
+
+    pos = np.zeros(len(close))
+    pend = [None] * len(close)
+    state = 0
+    pending = None
+    wait = 0
+    for i in range(len(close)):
+        want = regime.iloc[i]
+        if state == 0:
+            if want == 1:
+                if pending != "buy":
+                    pending = "buy"; wait = 0
+                wait += 1
+                if down.iloc[i] or wait >= MAX_WAIT_BUY:
+                    state = 1; pending = None
+            else:
+                pending = None
+        else:  # state == 1 (dentro)
+            if want == 0:
+                if pending != "sell":
+                    pending = "sell"; wait = 0
+                wait += 1
+                if up.iloc[i] or wait >= MAX_WAIT_SELL:
+                    state = 0; pending = None
+            else:
+                pending = None
+        pos[i] = state
+        pend[i] = pending
+    return (pd.Series(pos, index=close.index, name="position"),
+            pd.Series(pend, index=close.index, name="pending"))
 
 
 def _last_entry_price(close: pd.Series, pos: pd.Series):
@@ -55,18 +105,24 @@ def _last_entry_price(close: pd.Series, pos: pd.Series):
 
 def current_signal(close: pd.Series, commission: float = COMMISSION) -> dict:
     """Estado de hoy, cambio de regimen y P&L neto del trade si se vende."""
-    pos = compute_position(close)
+    regime = compute_position(close)
+    pos, pending = apply_timing(close, regime)
     sma = close.rolling(SMA_WINDOW).mean()
 
     today = int(pos.iloc[-1])
     yesterday = int(pos.iloc[-2])
     changed = today != yesterday
     price = float(close.iloc[-1])
+    pend = pending.iloc[-1]
 
     if changed and today == 1:
         action = "BUY"
     elif changed and today == 0:
         action = "SELL"
+    elif pend == "buy":
+        action = "WAIT_BUY"   # tendencia alcista, esperando un pozo para entrar
+    elif pend == "sell":
+        action = "WAIT_SELL"  # tendencia rota, esperando rebote para salir
     else:
         action = "HOLD"
 
@@ -77,6 +133,7 @@ def current_signal(close: pd.Series, commission: float = COMMISSION) -> dict:
         "invested": bool(today),
         "changed": changed,
         "action": action,
+        "pending": pend,
         "commission_pct": commission,
     }
 
