@@ -96,7 +96,7 @@ def build_message(sig: dict) -> str:
 
 
 def main():
-    commission = float(os.environ.get("COMMISSION_PCT", COMMISSION))
+    commission = float(os.environ.get("COMMISSION_PCT") or COMMISSION)
     close = fetch_spy_close()
     sig = current_signal(close, commission=commission)
     print("Senal:", sig)
