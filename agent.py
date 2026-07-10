@@ -40,7 +40,8 @@ def send_telegram(text: str):
         "text": text,
         "parse_mode": "HTML",
     }, timeout=30)
-    resp.raise_for_status()
+    if not resp.ok:
+        raise RuntimeError(f"Telegram {resp.status_code}: {resp.text}")
 
 
 def build_message(sig: dict) -> str:
