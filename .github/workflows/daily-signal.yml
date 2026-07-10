@@ -1,0 +1,27 @@
+name: Senal diaria SPY
+
+on:
+  schedule:
+    # 21:15 UTC (~poco despues del cierre 16:00 ET / 17:15 hora arg en horario estandar)
+    - cron: "15 21 * * 1-5"
+  workflow_dispatch: {}   # permite ejecutarlo a mano desde la pestana Actions
+
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Ejecutar agente
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ALWAYS_NOTIFY: ${{ vars.ALWAYS_NOTIFY }}
+        run: python agent.py
