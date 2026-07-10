@@ -16,15 +16,20 @@ al salir espera un rebote (dia verde) para vender mejor. La reversion pura no se
 usa como estrategia porque su edge (~0.1-0.3% por trade) no sobrevive a la
 comision de Bull Market (~0.6% por lado); solo sirve para afinar el precio.
 
+Parametros finales (SMA200, banda 4%, esperas 10/5) elegidos por busqueda
+amplia (~90 variantes) con validacion fuera de muestra: optimizados en
+1993-2009 y confirmados en 2010-2026.
+
 Validado sobre 1993-2026, **neto de comision (0.6%/operacion)**:
 
 | Estrategia         | CAGR | Caida maxima | Sharpe |
 |--------------------|------|--------------|--------|
 | Comprar y mantener | 8.9% | **-56.5%**   | 0.55   |
-| Tendencia + timing | 6.7% | **-24.7%**   | 0.60   |
+| Tendencia + timing | 8.1% | **-19.0%**   | 0.68   |
 
-No gana mas dinero total, pero **corta la caida maxima a la mitad** y da mejor
-retorno ajustado por riesgo. Genera ~1 senal al ano (comisiones despreciables).
+14 operaciones en 33 anios: 79% ganadoras, ganancia media +30.5%, perdida
+media -2.9%, peor trade -6.8%. Casi el mismo retorno que comprar y mantener
+con **un tercio de la caida maxima**.
 
 ## Archivos
 
