@@ -4,7 +4,12 @@ on:
   schedule:
     # 21:15 UTC (~poco despues del cierre 16:00 ET / 17:15 hora arg en horario estandar)
     - cron: "15 21 * * 1-5"
-  workflow_dispatch: {}   # permite ejecutarlo a mano desde la pestana Actions
+  workflow_dispatch:      # permite ejecutarlo a mano desde la pestana Actions
+    inputs:
+      force_notify:
+        description: "Forzar notificacion de prueba aunque no haya cambio"
+        type: boolean
+        default: false
 
 jobs:
   signal:
@@ -23,6 +28,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          ALWAYS_NOTIFY: ${{ vars.ALWAYS_NOTIFY }}
+          ALWAYS_NOTIFY: ${{ (vars.ALWAYS_NOTIFY == '1' || inputs.force_notify) && '1' || '0' }}
           COMMISSION_PCT: ${{ vars.COMMISSION_PCT }}
         run: python agent.py
