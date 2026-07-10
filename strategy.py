@@ -15,6 +15,11 @@ import pandas as pd
 SMA_WINDOW = 200
 BAND = 0.02  # 2% de banda de histeresis para evitar senales falsas
 
+# Comision del broker POR LADO (compra o venta), como fraccion.
+# Bull Market (Argentina): ajustar al valor real incluyendo derechos de
+# mercado + IVA. Se puede sobreescribir con la variable de entorno COMMISSION_PCT.
+COMMISSION = 0.006  # 0.6% por defecto
+
 
 def compute_position(close: pd.Series) -> pd.Series:
     """Serie 0/1: 1 = invertido (en SPY), 0 = fuera (en efectivo).
@@ -38,14 +43,25 @@ def compute_position(close: pd.Series) -> pd.Series:
     return pd.Series(pos, index=close.index, name="position")
 
 
-def current_signal(close: pd.Series) -> dict:
-    """Estado de hoy y si hubo cambio de regimen respecto a ayer."""
+def _last_entry_price(close: pd.Series, pos: pd.Series):
+    """Precio y fecha de la ultima ENTRADA (transicion 0->1) vigente."""
+    chg = pos.diff()
+    entries = pos.index[chg == 1]
+    if len(entries) == 0:
+        return None, None
+    d = entries[-1]
+    return float(close.loc[d]), d.strftime("%Y-%m-%d")
+
+
+def current_signal(close: pd.Series, commission: float = COMMISSION) -> dict:
+    """Estado de hoy, cambio de regimen y P&L neto del trade si se vende."""
     pos = compute_position(close)
     sma = close.rolling(SMA_WINDOW).mean()
 
     today = int(pos.iloc[-1])
     yesterday = int(pos.iloc[-2])
     changed = today != yesterday
+    price = float(close.iloc[-1])
 
     if changed and today == 1:
         action = "BUY"
@@ -54,11 +70,31 @@ def current_signal(close: pd.Series) -> dict:
     else:
         action = "HOLD"
 
-    return {
+    result = {
         "date": close.index[-1].strftime("%Y-%m-%d"),
-        "price": round(float(close.iloc[-1]), 2),
+        "price": round(price, 2),
         "sma200": round(float(sma.iloc[-1]), 2),
         "invested": bool(today),
         "changed": changed,
         "action": action,
+        "commission_pct": commission,
     }
+
+    # Coste estimado de comision de esta operacion (un lado).
+    if action in ("BUY", "SELL"):
+        result["commission_cost_pct"] = round(commission * 100, 3)
+
+    # Si vendemos, calcular P&L neto del round-trip contra la ultima entrada.
+    if action == "SELL":
+        entry_px, entry_date = _last_entry_price(close, pos)
+        if entry_px:
+            gross = price / entry_px - 1
+            net = (1 + gross) * (1 - commission) ** 2 - 1
+            result.update({
+                "entry_price": round(entry_px, 2),
+                "entry_date": entry_date,
+                "trade_gross_pct": round(gross * 100, 2),
+                "trade_net_pct": round(net * 100, 2),
+            })
+
+    return result

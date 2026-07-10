@@ -17,7 +17,7 @@ import sys
 import requests
 import yfinance as yf
 
-from strategy import current_signal, SMA_WINDOW, BAND
+from strategy import current_signal, BAND, COMMISSION
 
 
 def fetch_spy_close():
@@ -45,20 +45,31 @@ def send_telegram(text: str):
 
 def build_message(sig: dict) -> str:
     trend = "sobre" if sig["invested"] else "bajo"
+    comm = sig.get("commission_cost_pct")
     if sig["action"] == "BUY":
         return (
             f"\U0001F7E2 <b>SENAL: COMPRAR / ENTRAR</b>\n\n"
             f"El SPY recupero su tendencia (cruzo <b>sobre</b> la SMA200 +{BAND:.0%}).\n"
             f"Fecha: {sig['date']}\n"
-            f"Precio: ${sig['price']}  |  SMA200: ${sig['sma200']}\n\n"
+            f"Precio: ${sig['price']}  |  SMA200: ${sig['sma200']}\n"
+            f"Comision estimada de compra: ~{comm}%\n\n"
             f"Regimen alcista: reentrar en SPY."
         )
     if sig["action"] == "SELL":
+        pl = ""
+        if "trade_net_pct" in sig:
+            signo = "GANANCIA" if sig["trade_net_pct"] >= 0 else "PERDIDA"
+            pl = (
+                f"\nEntrada: ${sig['entry_price']} ({sig['entry_date']})\n"
+                f"Resultado del trade: {sig['trade_gross_pct']:+}% bruto  |  "
+                f"<b>{sig['trade_net_pct']:+}% neto</b> de comisiones ({signo})"
+            )
         return (
             f"\U0001F534 <b>SENAL: VENDER / REDUCIR</b>\n\n"
             f"El SPY perdio su tendencia (cruzo <b>bajo</b> la SMA200 -{BAND:.0%}).\n"
             f"Fecha: {sig['date']}\n"
-            f"Precio: ${sig['price']}  |  SMA200: ${sig['sma200']}\n\n"
+            f"Precio: ${sig['price']}  |  SMA200: ${sig['sma200']}\n"
+            f"Comision estimada de venta: ~{comm}%{pl}\n\n"
             f"Regimen bajista: salir a efectivo para proteger capital."
         )
     # HOLD (latido diario)
@@ -71,8 +82,9 @@ def build_message(sig: dict) -> str:
 
 
 def main():
+    commission = float(os.environ.get("COMMISSION_PCT", COMMISSION))
     close = fetch_spy_close()
-    sig = current_signal(close)
+    sig = current_signal(close, commission=commission)
     print("Senal:", sig)
 
     always = os.environ.get("ALWAYS_NOTIFY", "0") == "1"

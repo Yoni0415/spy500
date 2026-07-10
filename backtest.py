@@ -5,7 +5,7 @@ usando el CSV historico local del SPY. Ejecutar:  python backtest.py
 import numpy as np
 import pandas as pd
 
-from strategy import compute_position
+from strategy import compute_position, COMMISSION
 
 
 def load_close(path="spy_historico_completo.csv"):
@@ -31,11 +31,16 @@ def main():
     bh = ret
     # La posicion se decide con el cierre de hoy y se ejecuta al dia siguiente:
     # aplicamos pos con un dia de retraso para evitar sesgo de lookahead.
-    strat = pos.shift(1).fillna(0) * ret
+    pos_exec = pos.shift(1).fillna(0)
+    strat = pos_exec * ret
+    # Descontar comision en cada cambio de posicion (compra o venta).
+    trade_days = pos_exec.diff().abs() > 0
+    strat = strat - trade_days * COMMISSION
 
     print(f"Periodo: {close.index[0].date()} a {close.index[-1].date()}\n")
     print(f"{'Estrategia':<18}{'CAGR':>8}{'MaxDD':>9}{'Sharpe':>8}")
-    for name, r in [("Buy & Hold", bh), ("Tendencia+banda", strat)]:
+    print(f"(comision aplicada: {COMMISSION*100:.2f}% por operacion)")
+    for name, r in [("Buy & Hold", bh), ("Tendencia (neto)", strat)]:
         c, d, s = stats(r)
         print(f"{name:<18}{c*100:>7.1f}%{d*100:>8.1f}%{s:>8.2f}")
 
