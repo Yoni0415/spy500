@@ -10,15 +10,21 @@ No se puede predecir si el SPY sube o baja *manana* (es ruido: ~54% de acierto
 invertido solo cuando el precio esta sobre su media movil de 200 dias, con una
 banda del 2% para evitar senales falsas.
 
-Validado sobre 1993-2026:
+Sobre ese nucleo se agrega **timing de reversion a la media** sin sumar
+operaciones: al entrar espera un pozo (dias en baja) para comprar mas barato, y
+al salir espera un rebote (dia verde) para vender mejor. La reversion pura no se
+usa como estrategia porque su edge (~0.1-0.3% por trade) no sobrevive a la
+comision de Bull Market (~0.6% por lado); solo sirve para afinar el precio.
 
-| Estrategia        | CAGR | Caida maxima | Sharpe |
-|-------------------|------|--------------|--------|
-| Comprar y mantener| 8.9% | **-56.5%**   | 0.55   |
-| Tendencia + banda | 7.6% | **-21.6%**   | 0.68   |
+Validado sobre 1993-2026, **neto de comision (0.6%/operacion)**:
+
+| Estrategia         | CAGR | Caida maxima | Sharpe |
+|--------------------|------|--------------|--------|
+| Comprar y mantener | 8.9% | **-56.5%**   | 0.55   |
+| Tendencia + timing | 6.7% | **-24.7%**   | 0.60   |
 
 No gana mas dinero total, pero **corta la caida maxima a la mitad** y da mejor
-retorno ajustado por riesgo. Genera ~2 senales al ano.
+retorno ajustado por riesgo. Genera ~1 senal al ano (comisiones despreciables).
 
 ## Archivos
 
