@@ -17,7 +17,7 @@ import sys
 import requests
 import yfinance as yf
 
-from strategy import current_signal, BAND, COMMISSION
+from strategy import current_signal, COMMISSION
 
 
 def fetch_spy_close():
@@ -47,52 +47,55 @@ def send_telegram(text: str):
 def build_message(sig: dict) -> str:
     trend = "sobre" if sig["invested"] else "bajo"
     comm = sig.get("commission_cost_pct")
+
     if sig["action"] == "BUY":
         return (
-            f"\U0001F7E2 <b>SENAL: COMPRAR / ENTRAR</b>\n\n"
-            f"El SPY recupero su tendencia (cruzo <b>sobre</b> la SMA200 +{BAND:.0%}).\n"
-            f"Fecha: {sig['date']}\n"
-            f"Precio: ${sig['price']}  |  SMA200: ${sig['sma200']}\n"
-            f"Comision estimada de compra: ~{comm}%\n\n"
-            f"Regimen alcista: reentrar en SPY."
+            f"\U0001F7E2 <b>Jonah: comprá todo el SPY mañana a la apertura.</b>\n\n"
+            f"El mercado volvió a tendencia alcista.\n"
+            f"Precio: ${sig['price']}  (SMA200: ${sig['sma200']})\n"
+            f"Comisión estimada: ~{comm}%"
         )
+
     if sig["action"] == "SELL":
         pl = ""
         if "trade_net_pct" in sig:
-            signo = "GANANCIA" if sig["trade_net_pct"] >= 0 else "PERDIDA"
+            signo = "ganancia" if sig["trade_net_pct"] >= 0 else "pérdida"
             pl = (
-                f"\nEntrada: ${sig['entry_price']} ({sig['entry_date']})\n"
-                f"Resultado del trade: {sig['trade_gross_pct']:+}% bruto  |  "
-                f"<b>{sig['trade_net_pct']:+}% neto</b> de comisiones ({signo})"
+                f"\n\nEntraste el {sig['entry_date']} a ${sig['entry_price']}.\n"
+                f"Resultado neto de este trade: <b>{sig['trade_net_pct']:+}%</b> ({signo})."
             )
         return (
-            f"\U0001F534 <b>SENAL: VENDER / REDUCIR</b>\n\n"
-            f"El SPY perdio su tendencia (cruzo <b>bajo</b> la SMA200 -{BAND:.0%}).\n"
-            f"Fecha: {sig['date']}\n"
-            f"Precio: ${sig['price']}  |  SMA200: ${sig['sma200']}\n"
-            f"Comision estimada de venta: ~{comm}%{pl}\n\n"
-            f"Regimen bajista: salir a efectivo para proteger capital."
+            f"\U0001F534 <b>Jonah: vendé todo el SPY mañana a la apertura.</b>\n\n"
+            f"El mercado rompió tendencia alcista, mejor salir a efectivo.\n"
+            f"Precio: ${sig['price']}  (SMA200: ${sig['sma200']})\n"
+            f"Comisión estimada: ~{comm}%{pl}"
         )
+
     if sig["action"] == "WAIT_BUY":
         return (
-            f"\U0001F7E1 <b>Tendencia alcista — esperando pozo para entrar</b>\n"
-            f"{sig['date']}  ${sig['price']} sobre SMA200 ${sig['sma200']}\n"
-            f"Aun en efectivo. El agente comprara en la proxima baja "
-            f"(o a mas tardar en pocos dias)."
+            f"\U0001F7E1 <b>Jonah: todavía no compres, esperá una baja para entrar mejor.</b>\n\n"
+            f"Tendencia alcista confirmada (${sig['price']} sobre SMA200 ${sig['sma200']}), "
+            f"pero conviene esperar un pozo de precio antes de entrar. "
+            f"Te aviso apenas sea momento (a más tardar en pocos días)."
         )
+
     if sig["action"] == "WAIT_SELL":
         return (
-            f"\U0001F7E0 <b>Tendencia rota — esperando rebote para salir</b>\n"
-            f"{sig['date']}  ${sig['price']} bajo SMA200 ${sig['sma200']}\n"
-            f"Aun invertido. El agente vendera en el proximo dia verde "
-            f"(o a mas tardar en pocos dias)."
+            f"\U0001F7E0 <b>Jonah: todavía no vendas, esperá un rebote para salir mejor.</b>\n\n"
+            f"Tendencia rota (${sig['price']} bajo SMA200 ${sig['sma200']}), "
+            f"pero conviene esperar un día de suba antes de salir. "
+            f"Te aviso apenas sea momento (a más tardar en pocos días)."
         )
+
     # HOLD (latido diario)
-    estado = "INVERTIDO \U0001F7E2" if sig["invested"] else "EN EFECTIVO \U0001F534"
+    if sig["invested"]:
+        return (
+            f"\U0001F7E2 <b>Jonah: no hagas nada, seguí invertido en el SPY.</b>\n"
+            f"${sig['price']} {trend} SMA200 ${sig['sma200']}. Sin cambios."
+        )
     return (
-        f"⚙️ Estado diario SPY ({sig['date']})\n"
-        f"Precio ${sig['price']} {trend} SMA200 ${sig['sma200']}\n"
-        f"Posicion actual: {estado}. Sin cambios."
+        f"\U0001F534 <b>Jonah: no hagas nada, seguí en efectivo.</b>\n"
+        f"${sig['price']} {trend} SMA200 ${sig['sma200']}. Sin cambios."
     )
 
 
