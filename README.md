@@ -33,20 +33,33 @@ con **un tercio de la caida maxima**.
 
 ## Archivos
 
-- `strategy.py` — logica de la senal (SMA200 + banda 2%).
-- `agent.py` — descarga SPY, calcula senal y avisa por Telegram.
+- `strategy.py` — logica de la senal (SMA200 + banda 4% + timing 10/5).
+- `agent.py` — descarga SPY, calcula senal y avisa por Telegram (aviso diario).
+- `listen.py` — responde bajo demanda cuando le escribis un codigo al bot.
 - `backtest.py` — reproduce la tabla de arriba con el CSV local.
-- `.github/workflows/daily-signal.yml` — corre el agente cada dia habil.
+- `.github/workflows/daily-signal.yml` — corre el aviso diario cada dia habil.
+- `.github/workflows/listen.yml` — revisa mensajes nuevos cada ~10 minutos.
 
 ## Puesta en marcha
 
 1. Crear un bot con [@BotFather](https://t.me/BotFather) (`/newbot`) -> token.
 2. Obtener tu chat id con [@userinfobot](https://t.me/userinfobot).
-3. En el repo: **Settings -> Secrets and variables -> Actions** y agregar:
+3. Abrirle el chat a tu bot (boton **Start** o mandarle cualquier mensaje):
+   sin esto Telegram no deja que el bot te escriba.
+4. En el repo: **Settings -> Secrets and variables -> Actions** y agregar:
    - Secret `TELEGRAM_BOT_TOKEN`
    - Secret `TELEGRAM_CHAT_ID`
    - (opcional) Variable `ALWAYS_NOTIFY = 1` para recibir el estado cada dia.
-4. Probar a mano en la pestana **Actions -> Senal diaria SPY -> Run workflow**.
+   - (opcional) Variable `TRIGGER_CODE` para cambiar el codigo de consulta
+     bajo demanda (default `999`).
+5. Probar a mano en la pestana **Actions -> Senal diaria SPY -> Run workflow**.
+
+## Consulta bajo demanda
+
+Escribile a tu bot el codigo `999` (o el que hayas configurado en
+`TRIGGER_CODE`) y te responde con la senal de ese dia — la misma que te
+llegaria en el aviso automatico. Tarda hasta ~10 minutos porque
+`listen.yml` revisa mensajes nuevos en ese intervalo, no al instante.
 
 ## Backtest local
 

@@ -10,6 +10,9 @@ Variables de entorno (GitHub Secrets):
     TELEGRAM_BOT_TOKEN   token de @BotFather
     TELEGRAM_CHAT_ID     tu chat id de @userinfobot
     ALWAYS_NOTIFY        "1" para recibir el estado diario aunque no haya cambio
+
+Ver tambien listen.py: responde bajo demanda cuando le escribis un codigo
+al bot (ej. "999"), sin esperar al aviso automatico diario.
 """
 import os
 import sys
@@ -31,9 +34,9 @@ def fetch_spy_close():
     return close.dropna()
 
 
-def send_telegram(text: str):
+def send_telegram(text: str, chat_id: str = None):
     token = os.environ["TELEGRAM_BOT_TOKEN"]
-    chat_id = os.environ["TELEGRAM_CHAT_ID"]
+    chat_id = chat_id or os.environ["TELEGRAM_CHAT_ID"]
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     resp = requests.post(url, data={
         "chat_id": chat_id,
@@ -42,6 +45,13 @@ def send_telegram(text: str):
     }, timeout=30)
     if not resp.ok:
         raise RuntimeError(f"Telegram {resp.status_code}: {resp.text}")
+
+
+def get_signal(commission: float = None) -> dict:
+    commission = commission if commission is not None else float(
+        os.environ.get("COMMISSION_PCT") or COMMISSION)
+    close = fetch_spy_close()
+    return current_signal(close, commission=commission)
 
 
 def build_message(sig: dict) -> str:
@@ -100,9 +110,7 @@ def build_message(sig: dict) -> str:
 
 
 def main():
-    commission = float(os.environ.get("COMMISSION_PCT") or COMMISSION)
-    close = fetch_spy_close()
-    sig = current_signal(close, commission=commission)
+    sig = get_signal()
     print("Senal:", sig)
 
     always = os.environ.get("ALWAYS_NOTIFY", "0") == "1"
