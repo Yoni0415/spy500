@@ -5,6 +5,9 @@ on:
     - cron: "*/10 * * * *"   # cada ~10 minutos, todo el dia
   workflow_dispatch: {}
 
+permissions:
+  contents: write   # para commitear la cartera cifrada cuando cambia
+
 jobs:
   listen:
     runs-on: ubuntu-latest
@@ -22,6 +25,17 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PORTFOLIO_KEY: ${{ secrets.PORTFOLIO_KEY }}
           COMMISSION_PCT: ${{ vars.COMMISSION_PCT }}
           TRIGGER_CODE: ${{ vars.TRIGGER_CODE }}
         run: python listen.py
+
+      - name: Guardar cartera si cambio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add portfolio.enc
+          git diff --staged --quiet && echo "Cartera sin cambios." && exit 0
+          git commit -m "Actualizar cartera"
+          git pull --rebase origin main
+          git push

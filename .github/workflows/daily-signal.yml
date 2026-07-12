@@ -33,6 +33,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ALWAYS_NOTIFY: ${{ (vars.ALWAYS_NOTIFY == '1' || inputs.force_notify) && '1' || '0' }}
           COMMISSION_PCT: ${{ vars.COMMISSION_PCT }}
+          PORTFOLIO_KEY: ${{ secrets.PORTFOLIO_KEY }}
         run: python agent.py
 
       - name: Guardar historial de senales
@@ -42,4 +43,5 @@ jobs:
           git add signals_log.csv
           git diff --staged --quiet && echo "Sin cambios en el historial." && exit 0
           git commit -m "Registrar senal del $(date -u +%Y-%m-%d)"
+          git pull --rebase origin main
           git push

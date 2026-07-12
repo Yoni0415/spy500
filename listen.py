@@ -21,6 +21,7 @@ import sys
 import requests
 
 from agent import build_report, send_telegram
+from portfolio import apply_command
 
 TRIGGER_CODE = os.environ.get("TRIGGER_CODE") or "999"
 
@@ -62,12 +63,19 @@ def main():
             continue
 
         if text == TRIGGER_CODE:
-            report, _ = build_report()
+            report, _ = build_report(log=False)
             send_telegram(report, chat_id=chat_id)
             answered += 1
             print(f"Respondido a codigo '{TRIGGER_CODE}'.")
+            continue
+
+        reply = apply_command(text)
+        if reply:
+            send_telegram(reply, chat_id=chat_id)
+            answered += 1
+            print(f"Comando de cartera procesado: {text.split()[0].upper()}")
         else:
-            print(f"Mensaje ignorado (no es el codigo '{TRIGGER_CODE}'): {text!r}")
+            print(f"Mensaje ignorado: {text!r}")
 
     # Marcar todo como leido para no reprocesarlo en la proxima corrida.
     confirm_read(token, max_update_id)

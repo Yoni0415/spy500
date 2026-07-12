@@ -28,7 +28,9 @@ import yfinance as yf
 
 from strategy import current_signal, COMMISSION
 
-TICKERS = ["SPY", "QQQ"]  # activos de la cartera que sigue el agente
+# Activos que sigue el agente. GLD (oro) se agrego como diversificador real:
+# correlacion 0.10 con SPY en 10 anios (QQQ es 0.93 = casi duplicado de SPY).
+TICKERS = ["SPY", "QQQ", "GLD"]
 
 SIGNALS_LOG = os.path.join(os.path.dirname(__file__), "signals_log.csv")
 LOG_FIELDS = [
@@ -162,16 +164,27 @@ def build_message(sig: dict) -> str:
     )
 
 
-def build_report() -> tuple:
-    """Senales de todos los tickers. Devuelve (texto_combinado, hubo_cambio)."""
+def build_report(log: bool = True) -> tuple:
+    """Senales de todos los tickers + cartera. Devuelve (texto, hubo_cambio)."""
     parts = []
     any_changed = False
     for t in TICKERS:
         sig = get_signal(t)
         print("Senal:", sig)
-        log_signal(sig)
+        if log:
+            log_signal(sig)
         parts.append(build_message(sig))
         any_changed = any_changed or sig["changed"]
+
+    # Estado de la cartera real, si esta configurada (PORTFOLIO_KEY).
+    try:
+        from portfolio import load_portfolio, valuation
+        p = load_portfolio()
+        if p:
+            parts.append(valuation(p))
+    except Exception as e:
+        print("Cartera no disponible:", repr(e))
+
     return "\n\n".join(parts), any_changed
 
 

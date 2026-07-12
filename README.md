@@ -61,6 +61,39 @@ Escribile a tu bot el codigo `999` (o el que hayas configurado en
 llegaria en el aviso automatico. Tarda hasta ~10 minutos porque
 `listen.yml` revisa mensajes nuevos en ese intervalo, no al instante.
 
+## Cartera real (cifrada)
+
+El agente lleva la contabilidad de la cartera: posiciones, PPC, efectivo
+disponible y objetivo. El estado vive en `portfolio.enc`, cifrado con
+Fernet/AES — el repo es publico pero el archivo es ilegible sin la clave,
+que existe solo en el secret `PORTFOLIO_KEY`. El plaintext
+(`portfolio.json`) esta en `.gitignore` y nunca se commitea.
+
+Comandos por Telegram (los procesa `listen.yml` cada ~10 min):
+
+```
+COMPRE SPY 10 19720     compre 10 CEDEARs de SPY a ARS 19.720 c/u
+VENDI QQQ 23 56750      vendi 23 CEDEARs de QQQ a ARS 56.750 c/u
+INGRESO 500000          ingrese efectivo fresco (ARS)
+RETIRO 100000           retire efectivo (ARS)
+OBJETIVO 6000000        fijar objetivo de cartera (ARS)
+POS                     ver la cartera valuada a precios de hoy
+AYUDA                   lista de comandos
+```
+
+La valuacion usa los precios de los CEDEARs en BYMA (tickers `.BA` de
+Yahoo Finance, en pesos). Las senales de estrategia siguen usando el
+precio en USD del ETF subyacente.
+
+## Activos seguidos y diversificacion
+
+`SPY`, `QQQ` y `GLD`. Datos (correlacion de retornos diarios con SPY,
+10 anios): QQQ +0.93 (casi duplicado de SPY), GLD +0.10 (diversificador
+real). XLE/EEM/EWZ se evaluaron y descartaron: la estrategia rinde mal en
+ellos y sus caidas maximas son enormes. En QQQ la estrategia corta la
+caida maxima de -83% a -44% (1999-2026); en GLD tambien funciona
+(CAGR 7.5% neto, DD -42%).
+
 ## Historial de senales
 
 Cada corrida del aviso diario (`daily-signal.yml`) agrega una fila a
