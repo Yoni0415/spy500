@@ -21,7 +21,9 @@ import sys
 import requests
 
 from agent import build_report, send_telegram
-from portfolio import apply_command
+from portfolio import apply_command, AYUDA
+
+MENU = "\n\n————\n\U0001F4CB <b>Menú</b>\n" + AYUDA
 
 TRIGGER_CODE = os.environ.get("TRIGGER_CODE") or "999"
 
@@ -64,18 +66,24 @@ def main():
 
         if text == TRIGGER_CODE:
             report, _ = build_report(log=False)
-            send_telegram(report, chat_id=chat_id)
+            send_telegram(report + MENU, chat_id=chat_id)
             answered += 1
             print(f"Respondido a codigo '{TRIGGER_CODE}'.")
             continue
 
         reply = apply_command(text)
         if reply:
+            # AYUDA ya es el menu; a lo demas se le agrega al pie
+            if reply != AYUDA:
+                reply += MENU
             send_telegram(reply, chat_id=chat_id)
             answered += 1
             print(f"Comando de cartera procesado: {text.split()[0].upper()}")
         else:
-            print(f"Mensaje ignorado: {text!r}")
+            # Mensaje no reconocido: responder con el menu para guiar
+            send_telegram("No reconocí ese comando." + MENU, chat_id=chat_id)
+            answered += 1
+            print(f"Mensaje no reconocido, se envio el menu: {text!r}")
 
     # Marcar todo como leido para no reprocesarlo en la proxima corrida.
     confirm_read(token, max_update_id)
