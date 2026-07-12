@@ -28,19 +28,21 @@ import yfinance as yf
 
 from strategy import current_signal, COMMISSION
 
+TICKERS = ["SPY", "QQQ"]  # activos de la cartera que sigue el agente
+
 SIGNALS_LOG = os.path.join(os.path.dirname(__file__), "signals_log.csv")
 LOG_FIELDS = [
-    "date", "action", "price", "sma200", "invested", "changed",
+    "date", "ticker", "action", "price", "sma200", "invested", "changed",
     "commission_pct", "commission_cost_pct",
     "entry_price", "entry_date", "trade_gross_pct", "trade_net_pct",
 ]
 
 
-def fetch_spy_close():
-    data = yf.download("SPY", period="max", interval="1d",
+def fetch_close(ticker: str):
+    data = yf.download(ticker, period="max", interval="1d",
                        auto_adjust=False, progress=False)
     if data.empty:
-        raise RuntimeError("Descarga de SPY vacia")
+        raise RuntimeError(f"Descarga de {ticker} vacia")
     close = data["Close"]
     if hasattr(close, "columns"):  # yfinance devuelve MultiIndex a veces
         close = close.iloc[:, 0]
@@ -60,17 +62,19 @@ def send_telegram(text: str, chat_id: str = None):
         raise RuntimeError(f"Telegram {resp.status_code}: {resp.text}")
 
 
-def get_signal(commission: float = None) -> dict:
+def get_signal(ticker: str = "SPY", commission: float = None) -> dict:
     commission = commission if commission is not None else float(
         os.environ.get("COMMISSION_PCT") or COMMISSION)
-    close = fetch_spy_close()
-    return current_signal(close, commission=commission)
+    close = fetch_close(ticker)
+    sig = current_signal(close, commission=commission)
+    sig["ticker"] = ticker
+    return sig
 
 
 def log_signal(sig: dict):
     """Agrega la senal de hoy a signals_log.csv (historial real, no backtest).
 
-    Idempotente: si ya hay un registro para la fecha de hoy, no duplica
+    Idempotente: si ya hay un registro para esta fecha y ticker, no duplica
     (para poder correr el agente varias veces el mismo dia sin ensuciar
     el historial).
     """
@@ -78,8 +82,20 @@ def log_signal(sig: dict):
     if file_exists:
         with open(SIGNALS_LOG, encoding="utf-8") as f:
             lines = f.read().strip().splitlines()
-        if len(lines) > 1 and lines[-1].split(",")[0] == sig["date"]:
-            print(f"Ya habia un registro para {sig['date']}, no se duplica.")
+        if lines and lines[0] != ",".join(LOG_FIELDS):
+            # migrar formato viejo (sin columna ticker): esas filas eran de SPY
+            header_old = lines[0].split(",")
+            new_lines = [",".join(LOG_FIELDS)]
+            for ln in lines[1:]:
+                vals = dict(zip(header_old, ln.split(",")))
+                vals["ticker"] = "SPY"
+                new_lines.append(",".join(vals.get(k, "") for k in LOG_FIELDS))
+            with open(SIGNALS_LOG, "w", newline="", encoding="utf-8") as f:
+                f.write("\n".join(new_lines) + "\n")
+            lines = new_lines
+        key = f"{sig['date']},{sig['ticker']}"
+        if any(ln.startswith(key) for ln in lines[1:]):
+            print(f"Ya habia registro para {key}, no se duplica.")
             return
 
     with open(SIGNALS_LOG, "a", newline="", encoding="utf-8") as f:
@@ -87,17 +103,18 @@ def log_signal(sig: dict):
         if not file_exists:
             writer.writeheader()
         writer.writerow({k: sig.get(k, "") for k in LOG_FIELDS})
-    print(f"Senal registrada en {SIGNALS_LOG}.")
+    print(f"Senal registrada: {sig['ticker']} {sig['date']}.")
 
 
 def build_message(sig: dict) -> str:
+    t = sig.get("ticker", "SPY")
     trend = "sobre" if sig["invested"] else "bajo"
     comm = sig.get("commission_cost_pct")
 
     if sig["action"] == "BUY":
         return (
-            f"\U0001F7E2 <b>Jonah: comprá todo el SPY mañana a la apertura.</b>\n\n"
-            f"El mercado volvió a tendencia alcista.\n"
+            f"\U0001F7E2 <b>Jonah: comprá todo el {t} mañana a la apertura.</b>\n\n"
+            f"El {t} volvió a tendencia alcista.\n"
             f"Precio: ${sig['price']}  (SMA200: ${sig['sma200']})\n"
             f"Comisión estimada: ~{comm}%"
         )
@@ -111,15 +128,15 @@ def build_message(sig: dict) -> str:
                 f"Resultado neto de este trade: <b>{sig['trade_net_pct']:+}%</b> ({signo})."
             )
         return (
-            f"\U0001F534 <b>Jonah: vendé todo el SPY mañana a la apertura.</b>\n\n"
-            f"El mercado rompió tendencia alcista, mejor salir a efectivo.\n"
+            f"\U0001F534 <b>Jonah: vendé todo el {t} mañana a la apertura.</b>\n\n"
+            f"El {t} rompió tendencia alcista, mejor salir a efectivo.\n"
             f"Precio: ${sig['price']}  (SMA200: ${sig['sma200']})\n"
             f"Comisión estimada: ~{comm}%{pl}"
         )
 
     if sig["action"] == "WAIT_BUY":
         return (
-            f"\U0001F7E1 <b>Jonah: todavía no compres, esperá una baja para entrar mejor.</b>\n\n"
+            f"\U0001F7E1 <b>Jonah: todavía no compres {t}, esperá una baja para entrar mejor.</b>\n\n"
             f"Tendencia alcista confirmada (${sig['price']} sobre SMA200 ${sig['sma200']}), "
             f"pero conviene esperar un pozo de precio antes de entrar. "
             f"Te aviso apenas sea momento (a más tardar en pocos días)."
@@ -127,7 +144,7 @@ def build_message(sig: dict) -> str:
 
     if sig["action"] == "WAIT_SELL":
         return (
-            f"\U0001F7E0 <b>Jonah: todavía no vendas, esperá un rebote para salir mejor.</b>\n\n"
+            f"\U0001F7E0 <b>Jonah: todavía no vendas {t}, esperá un rebote para salir mejor.</b>\n\n"
             f"Tendencia rota (${sig['price']} bajo SMA200 ${sig['sma200']}), "
             f"pero conviene esperar un día de suba antes de salir. "
             f"Te aviso apenas sea momento (a más tardar en pocos días)."
@@ -136,23 +153,34 @@ def build_message(sig: dict) -> str:
     # HOLD (latido diario)
     if sig["invested"]:
         return (
-            f"\U0001F7E2 <b>Jonah: no hagas nada, seguí invertido en el SPY.</b>\n"
+            f"\U0001F7E2 <b>{t}: no hagas nada, seguí invertido.</b>\n"
             f"${sig['price']} {trend} SMA200 ${sig['sma200']}. Sin cambios."
         )
     return (
-        f"\U0001F534 <b>Jonah: no hagas nada, seguí en efectivo.</b>\n"
+        f"\U0001F534 <b>{t}: no hagas nada, seguí en efectivo.</b>\n"
         f"${sig['price']} {trend} SMA200 ${sig['sma200']}. Sin cambios."
     )
 
 
+def build_report() -> tuple:
+    """Senales de todos los tickers. Devuelve (texto_combinado, hubo_cambio)."""
+    parts = []
+    any_changed = False
+    for t in TICKERS:
+        sig = get_signal(t)
+        print("Senal:", sig)
+        log_signal(sig)
+        parts.append(build_message(sig))
+        any_changed = any_changed or sig["changed"]
+    return "\n\n".join(parts), any_changed
+
+
 def main():
-    sig = get_signal()
-    print("Senal:", sig)
-    log_signal(sig)
+    text, any_changed = build_report()
 
     always = os.environ.get("ALWAYS_NOTIFY", "0") == "1"
-    if sig["changed"] or always:
-        send_telegram(build_message(sig))
+    if any_changed or always:
+        send_telegram(text)
         print("Notificacion enviada.")
     else:
         print("Sin cambio de regimen; no se notifica (ALWAYS_NOTIFY=0).")

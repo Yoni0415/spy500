@@ -20,7 +20,7 @@ import sys
 
 import requests
 
-from agent import get_signal, build_message, send_telegram
+from agent import build_report, send_telegram
 
 TRIGGER_CODE = os.environ.get("TRIGGER_CODE") or "999"
 
@@ -62,10 +62,10 @@ def main():
             continue
 
         if text == TRIGGER_CODE:
-            sig = get_signal()
-            send_telegram(build_message(sig), chat_id=chat_id)
+            report, _ = build_report()
+            send_telegram(report, chat_id=chat_id)
             answered += 1
-            print(f"Respondido a codigo '{TRIGGER_CODE}'. Senal: {sig}")
+            print(f"Respondido a codigo '{TRIGGER_CODE}'.")
         else:
             print(f"Mensaje ignorado (no es el codigo '{TRIGGER_CODE}'): {text!r}")
 

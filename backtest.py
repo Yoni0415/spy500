@@ -23,8 +23,8 @@ def stats(returns):
     return cagr, maxdd, sharpe
 
 
-def main():
-    close = load_close()
+def run_ticker(path):
+    close = load_close(path)
     ret = close.pct_change().fillna(0)
     regime = compute_position(close)
     pos, _ = apply_timing(close, regime)  # posicion real con timing de entrada/salida
@@ -38,15 +38,21 @@ def main():
     trade_days = pos_exec.diff().abs() > 0
     strat = strat - trade_days * COMMISSION
 
-    print(f"Periodo: {close.index[0].date()} a {close.index[-1].date()}\n")
+    print(f"Periodo: {close.index[0].date()} a {close.index[-1].date()}")
     print(f"{'Estrategia':<18}{'CAGR':>8}{'MaxDD':>9}{'Sharpe':>8}")
-    print(f"(comision aplicada: {COMMISSION*100:.2f}% por operacion)")
     for name, r in [("Buy & Hold", bh), ("Tendencia (neto)", strat)]:
         c, d, s = stats(r)
         print(f"{name:<18}{c*100:>7.1f}%{d*100:>8.1f}%{s:>8.2f}")
 
     trades = int((pos.diff().abs() > 0).sum())
-    print(f"\nCambios de posicion: {trades}  |  Dias invertido: {pos.mean()*100:.0f}%")
+    print(f"Cambios de posicion: {trades}  |  Dias invertido: {pos.mean()*100:.0f}%\n")
+
+
+def main():
+    print(f"(comision aplicada: {COMMISSION*100:.2f}% por operacion)\n")
+    for name in ["spy", "qqq"]:
+        print(f"=== {name.upper()} ===")
+        run_ticker(f"{name}_historico_completo.csv")
 
 
 if __name__ == "__main__":
