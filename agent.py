@@ -11,9 +11,15 @@ Variables de entorno (GitHub Secrets):
     TELEGRAM_CHAT_ID     tu chat id de @userinfobot
     ALWAYS_NOTIFY        "1" para recibir el estado diario aunque no haya cambio
 
+Cada corrida agrega un registro a signals_log.csv (historial real de
+senales, no backtest). El workflow lo commitea de vuelta al repo, lo que
+ademas mantiene el repositorio "activo" y evita que GitHub desactive los
+workflows programados por 60 dias de inactividad.
+
 Ver tambien listen.py: responde bajo demanda cuando le escribis un codigo
 al bot (ej. "999"), sin esperar al aviso automatico diario.
 """
+import csv
 import os
 import sys
 
@@ -21,6 +27,13 @@ import requests
 import yfinance as yf
 
 from strategy import current_signal, COMMISSION
+
+SIGNALS_LOG = os.path.join(os.path.dirname(__file__), "signals_log.csv")
+LOG_FIELDS = [
+    "date", "action", "price", "sma200", "invested", "changed",
+    "commission_pct", "commission_cost_pct",
+    "entry_price", "entry_date", "trade_gross_pct", "trade_net_pct",
+]
 
 
 def fetch_spy_close():
@@ -52,6 +65,29 @@ def get_signal(commission: float = None) -> dict:
         os.environ.get("COMMISSION_PCT") or COMMISSION)
     close = fetch_spy_close()
     return current_signal(close, commission=commission)
+
+
+def log_signal(sig: dict):
+    """Agrega la senal de hoy a signals_log.csv (historial real, no backtest).
+
+    Idempotente: si ya hay un registro para la fecha de hoy, no duplica
+    (para poder correr el agente varias veces el mismo dia sin ensuciar
+    el historial).
+    """
+    file_exists = os.path.exists(SIGNALS_LOG)
+    if file_exists:
+        with open(SIGNALS_LOG, encoding="utf-8") as f:
+            lines = f.read().strip().splitlines()
+        if len(lines) > 1 and lines[-1].split(",")[0] == sig["date"]:
+            print(f"Ya habia un registro para {sig['date']}, no se duplica.")
+            return
+
+    with open(SIGNALS_LOG, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=LOG_FIELDS)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow({k: sig.get(k, "") for k in LOG_FIELDS})
+    print(f"Senal registrada en {SIGNALS_LOG}.")
 
 
 def build_message(sig: dict) -> str:
@@ -112,6 +148,7 @@ def build_message(sig: dict) -> str:
 def main():
     sig = get_signal()
     print("Senal:", sig)
+    log_signal(sig)
 
     always = os.environ.get("ALWAYS_NOTIFY", "0") == "1"
     if sig["changed"] or always:

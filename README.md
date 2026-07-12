@@ -61,6 +61,28 @@ Escribile a tu bot el codigo `999` (o el que hayas configurado en
 llegaria en el aviso automatico. Tarda hasta ~10 minutos porque
 `listen.yml` revisa mensajes nuevos en ese intervalo, no al instante.
 
+## Historial de senales
+
+Cada corrida del aviso diario (`daily-signal.yml`) agrega una fila a
+`signals_log.csv` con la senal real de ese dia, y el workflow la commitea
+de vuelta al repo. Sirve para dos cosas:
+
+- **Trackear en vivo** lo que el sistema predijo contra lo que paso de
+  verdad, sin depender solo del backtest historico.
+- **Mantener el repo "activo"**: GitHub apaga los workflows programados
+  despues de 60 dias sin actividad, y correr el cron por si solo no cuenta
+  como actividad — hace falta un commit real, que es justo lo que este
+  paso genera automaticamente.
+
+## Repo publico vs privado
+
+Si el repo es **privado**, GitHub factura los minutos de Actions
+redondeados al minuto por corrida. Con `listen.yml` cada 10 minutos, eso
+suma ~4.300 min/mes contra 2.000 gratis — puede generar costo. Si el repo
+es **publico**, los runners estandar de GitHub Actions son gratis e
+ilimitados (no hay nada sensible en el codigo; las credenciales viven en
+Secrets, que quedan ocultos aunque el repo sea publico).
+
 ## Backtest local
 
 ```bash
