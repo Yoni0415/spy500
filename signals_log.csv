@@ -209,3 +209,6 @@ date,ticker,action,price,sma200,invested,changed,commission_pct,commission_cost_
 2026-10-28,SPY,HOLD,772.31,728.15,True,False,0.006,,,,,
 2026-10-28,QQQ,HOLD,725.61,678.72,True,False,0.006,,,,,
 2026-10-28,GLD,HOLD,373.51,413.54,False,False,0.006,,,,,
+2026-10-29,SPY,HOLD,769.36,728.53,True,False,0.006,,,,,
+2026-10-29,QQQ,HOLD,715.34,679.16,True,False,0.006,,,,,
+2026-10-29,GLD,HOLD,368.57,413.27,False,False,0.006,,,,,
